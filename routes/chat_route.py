@@ -1,17 +1,28 @@
 from dotenv import load_dotenv
+
 load_dotenv()
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketException, WebSocketDisconnect
-import logging
-from fastapi.responses import StreamingResponse
+import asyncio
 import json
+import logging
+from contextlib import asynccontextmanager
+
 from agents import Agent
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    WebSocketException,
+)
+from fastapi.responses import StreamingResponse
 from langchain_core.messages import (
-    HumanMessage as HM,
     AIMessage as AM,
 )
+from langchain_core.messages import (
+    HumanMessage as HM,
+)
 from models import Struct
-import asyncio
-from contextlib import asynccontextmanager
+
 graph = None
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
