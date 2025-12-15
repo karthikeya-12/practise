@@ -3,7 +3,8 @@ from langchain_core.messages import (
     AIMessage as AM,
 )
 from langgraph.graph import StateGraph, END
-from models import AgentState
+from my_project.models import AgentState
+
 # from dotenv import load_dotenv
 
 # load_dotenv()
