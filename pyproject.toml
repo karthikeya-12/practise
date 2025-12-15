@@ -1,0 +1,38 @@
+[project]
+name = "my_project"
+version = "0.1.0"
+description = "My Python project"
+readme = "README.md"
+requires-python = "==3.12.10"
+
+authors = [
+  { name = "Vema Manikanta", email = "manikantar@conceptvines.com" }
+]
+
+dependencies = [
+    "fastapi==0.124.4",
+    "langchain-core==1.2.0",
+    "langchain-google-genai==4.0.0",
+    "langchain-mistralai==1.1.0",
+    "langgraph==1.0.4",
+    "pydantic==2.12.5",
+    "python-dotenv==1.2.1",
+    "requests==2.32.5",
+    "rich==14.2.0",
+    "SQLAlchemy==2.0.45",
+    "toon-format==0.1.0",
+    "typing-extensions==4.15.0",
+    "uvicorn==0.38.0"
+]
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+dev = "uvicorn my_project.main:app --reload"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
