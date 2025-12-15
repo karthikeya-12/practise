@@ -6,7 +6,7 @@ import json
 import logging
 from contextlib import asynccontextmanager
 
-from agents import Agent
+from my_project.agents import Agent
 from fastapi import (
     APIRouter,
     HTTPException,
@@ -21,7 +21,7 @@ from langchain_core.messages import (
 from langchain_core.messages import (
     HumanMessage as HM,
 )
-from models import Struct
+from my_project.models import Struct
 
 graph = None
 logging.basicConfig(level=logging.INFO)
@@ -33,6 +33,7 @@ async def get_graph(app: APIRouter):
     global graph
     graph = await Agent().compile()
     yield
+
 
 router = APIRouter(lifespan=get_graph)
 
