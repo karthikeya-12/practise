@@ -91,6 +91,58 @@ class Staffs(Base):
     updated_by = Column(VARCHAR)
 
 
+class SopComplianceTracking(Base):
+    __tablename__ = "sop_compliance_tracking"
+    __table_args__ = {"schema": "hpip"}
+
+    sop_compliance_id = Column(Integer, primary_key=True)
+    session_id = Column(Integer)
+    staff_id = Column(Integer)
+    scenario_id = Column(Integer)
+    sop_id = Column(Integer)
+    message = Column(Text)
+    reason = Column(Text)
+    is_completed = Column(Boolean)
+    is_breached = Column(Boolean)
+
+
+class StaffTrainingRecommendations(Base):
+    __tablename__ = "staff_training_recommendations"
+    __table_args__ = {"schema": "hpip"}
+
+    training_staff_mapping_id = Column(Integer, primary_key=True)
+    staff_id = Column(Integer)
+    training_id = Column(Integer)
+    approved_by = Column(Integer)
+    approval_status = Column(VARCHAR)
+    reason = Column(Text)
+    status = Column(VARCHAR)
+    created_on = Column(DateTime)
+    created_by = Column(VARCHAR)
+    updated_on = Column(DateTime)
+    updated_by = Column(VARCHAR)
+
+
+class Courses(Base):
+    __tablename__ = "courses"
+    __table_args__ = {"schema": "hpip"}
+
+    training_courses_id = Column(Integer, primary_key=True)
+    training_name = Column(VARCHAR)
+    training_code = Column(VARCHAR)
+    training_description = Column(Text)
+    primary_skill = Column(VARCHAR)
+    secondary_skill = Column(VARCHAR)
+    course_goal = Column(Text)
+    level = Column(VARCHAR)
+    duration_hours = Column(Integer)
+    status = Column(VARCHAR)
+    created_on = Column(DateTime)
+    created_by = Column(VARCHAR)
+    updated_on = Column(DateTime)
+    updated_by = Column(VARCHAR)
+
+
 engine = create_async_engine(
     f"postgresql+asyncpg://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
     f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}",
@@ -269,12 +321,51 @@ async def get_staff_details(user_id: int):
         except Exception as e:
             raise e
 
+
+async def get_mcq_details(user_id: int):
+    async with _get_db() as session:
+        data = await session.execute(select(Staffs.staff_id).where(Staffs.user_id == user_id))
+        staff_id = data.scalar_one_or_none()
+        if not staff_id:
+            # raise ValueError(f"No staff_id found for user_id: {user_id}")
+            return {"error": f"No staff_id found for user_id: {user_id}"}
+        sop_compliance_data = await session.execute(select(SopComplianceTracking).where(SopComplianceTracking.staff_id == staff_id))
+        sop_compilance_records = sop_compliance_data.scalars().all()
+        sop_compliance_list = [{"message": i.message, "reason": i.reason, "is_completed": i.is_completed, "is_breached": i.is_breached} for i in sop_compilance_records]
+        training_recommendation_data = await session.execute(select(StaffTrainingRecommendations).where(StaffTrainingRecommendations.staff_id == staff_id, StaffTrainingRecommendations.status == "Active"))
+        training_recommendation_records = training_recommendation_data.scalars().all()
+        training_recommendation_list = [{"training_id": i.training_id, "approval_status": i.approval_status, "reason": i.reason} for i in training_recommendation_records]
+        courses_list = []
+        for i in training_recommendation_list:
+            courses_data = await session.execute(select(Courses).where(Courses.training_courses_id == i["training_id"]))
+            courses_records = courses_data.scalar_one_or_none()
+            dictionary = {"training_name": courses_records.training_name, "training_description": courses_records.training_description, "primary_skill": courses_records.primary_skill, "secondary_skill": courses_records.secondary_skill, "goal": courses_records.course_goal}
+            courses_list.append(dictionary)
+        return {
+            "sop_compliance_list": sop_compliance_list,
+            "training_recommendation_list": training_recommendation_list,
+            "master_course_data": courses_list,
+            "staff_id": staff_id
+        }
+
 if __name__ == "__main__":
     # res = asyncio.run(_get_chat_history(chat_title="Testing", staff_id=1))
     # res = asyncio.run(get_coaching_summary_id(coaching_summary_id=1))
-    start = perf_counter()
+    """ start = perf_counter()
     res = asyncio.run(get_staff_details(user_id=226))
     end = perf_counter()
     print(f"Execution time: {end - start:.6f} seconds")
     print(res)
-    print(res["staff_name"].lower())
+    print(res["staff_name"].lower()) """
+    start = perf_counter()
+    res = asyncio.run(get_mcq_details(user_id=223))
+    end = perf_counter()
+    print("sop_compliance_list\n", res["sop_compliance_list"])
+    print("__ " * 45)
+    print("training_recommendation_list\n", res["training_recommendation_list"])
+    print("__ " * 45)
+    print("master_course_data\n", res["master_course_data"])
+    print("__ " * 45)
+    print("staff_id\n", res["staff_id"])
+    print("__ " * 45)
+    print(f"\n\nExecution time: {end - start:.6f} seconds")
