@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from datetime import date, datetime
 from time import perf_counter
 from uuid import uuid4
-
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from sqlalchemy import VARCHAR, Boolean, Column, Date, DateTime, Integer, Text, select
