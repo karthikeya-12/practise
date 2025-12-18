@@ -2,13 +2,14 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from datetime import date, datetime
-from time import perf_counter
+# from time import perf_counter
 from uuid import uuid4
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from sqlalchemy import VARCHAR, Boolean, Column, Date, DateTime, Integer, Text, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
+from fastapi import HTTPException
 
 load_dotenv()
 
@@ -136,6 +137,21 @@ class Courses(Base):
     level = Column(VARCHAR)
     duration_hours = Column(Integer)
     status = Column(VARCHAR)
+    created_on = Column(DateTime)
+    created_by = Column(VARCHAR)
+    updated_on = Column(DateTime)
+    updated_by = Column(VARCHAR)
+
+
+class UserAssessments(Base):
+    __tablename__ = "user_assessments"
+    __table_args__ = {"schema": "hpip"}
+
+    user_assessment_id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    score = Column(Integer)
+    attended_date = Column(Date)
+    assessment_status = Column(VARCHAR)
     created_on = Column(DateTime)
     created_by = Column(VARCHAR)
     updated_on = Column(DateTime)
@@ -347,6 +363,31 @@ async def get_mcq_details(user_id: int):
             "staff_id": staff_id
         }
 
+
+async def save_exam_results(user_id: int, score: int):
+    fail: str = "PASSED"
+    if score <= 70:
+        fail = "FAILED"
+    async with _get_db() as session:
+        try:
+            new_score = UserAssessments(user_id=user_id, score=score, attended_date=date.today(), assessment_status=fail, created_by=str(user_id), created_on=datetime.now(), updated_by=str(user_id), updated_on=datetime.now())
+            session.add(new_score)
+        except Exception as e:
+            raise HTTPException(detail=e, status_code=401)
+
+
+async def get_score_details(user_id: int):
+    async with _get_db() as session:
+        data = await session.execute(select(UserAssessments.score, UserAssessments.assessment_status).where(UserAssessments.user_id == user_id))
+        records = data.all()
+        scores_list = []
+        if records is None:
+            return {"message": "No records found"}
+        for i in records:
+            scores_list.append({"score": i[0], "assessment_status": i[1]})
+        return scores_list
+
+
 if __name__ == "__main__":
     # res = asyncio.run(_get_chat_history(chat_title="Testing", staff_id=1))
     # res = asyncio.run(get_coaching_summary_id(coaching_summary_id=1))
@@ -356,7 +397,7 @@ if __name__ == "__main__":
     print(f"Execution time: {end - start:.6f} seconds")
     print(res)
     print(res["staff_name"].lower()) """
-    start = perf_counter()
+    """ start = perf_counter()
     res = asyncio.run(get_mcq_details(user_id=223))
     end = perf_counter()
     print("sop_compliance_list\n", res["sop_compliance_list"])
@@ -367,4 +408,8 @@ if __name__ == "__main__":
     print("__ " * 45)
     print("staff_id\n", res["staff_id"])
     print("__ " * 45)
-    print(f"\n\nExecution time: {end - start:.6f} seconds")
+    print(f"\n\nExecution time: {end - start:.6f} seconds") """
+    # asyncio.run(save_exam_results(222, 89))
+    res = asyncio.run(get_score_details(user_id=222))
+    print(len(res))
+    print(res)
