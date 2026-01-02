@@ -2,14 +2,16 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from datetime import date, datetime
+
 # from time import perf_counter
 from uuid import uuid4
+
 from dotenv import load_dotenv
+from fastapi import HTTPException
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from sqlalchemy import VARCHAR, Boolean, Column, Date, DateTime, Integer, Text, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
-from fastapi import HTTPException
 
 load_dotenv()
 
@@ -180,7 +182,9 @@ async def _get_db():
         await session.close()
 
 
-async def _get_chat_history(user_id: int = None, chat_title: str = None, history_id: str = None):
+async def _get_chat_history(
+    user_id: int = None, chat_title: str = None, history_id: str = None
+):
     if not history_id:
         new_history_id = str(uuid4())
 
@@ -190,7 +194,7 @@ async def _get_chat_history(user_id: int = None, chat_title: str = None, history
                 chat_title=chat_title,
                 status=True,
                 history_id=new_history_id,
-                created_by=str(user_id)
+                created_by=str(user_id),
             )
             session.add(new_chat)
             await session.flush()
@@ -246,20 +250,24 @@ async def _insert_chat_history(messages: list, chatbot_id: int, staff_id: int):
                     message_content=msg.content,
                     status=True,
                     updated_by=str(staff_id),
-                    created_by=str(staff_id)
+                    created_by=str(staff_id),
                 )
                 session.add(new_entry)
         except Exception as e:
             raise e
 
 
-async def save_coaching_summary(message: str, staff_id: int, reason: str, coaching_scheduled_status_id: int):
+async def save_coaching_summary(
+    message: str, staff_id: int, reason: str, coaching_scheduled_status_id: int
+):
     """Saves the latest coaching summary into the coaching summary tables"""
     async with _get_db() as session:
         try:
             existing = await session.scalar(
-                select(CoachingSummary)
-                .where(CoachingSummary.coaching_schedule_status_id == coaching_scheduled_status_id)
+                select(CoachingSummary).where(
+                    CoachingSummary.coaching_schedule_status_id
+                    == coaching_scheduled_status_id
+                )
             )
 
             if existing:
@@ -278,7 +286,7 @@ async def save_coaching_summary(message: str, staff_id: int, reason: str, coachi
                     created_by=str(staff_id),
                     updated_on=datetime.now(),
                     updated_by=str(staff_id),
-                    scheduled_date=date.today()
+                    scheduled_date=date.today(),
                 )
                 session.add(new_data)
 
@@ -288,14 +296,26 @@ async def save_coaching_summary(message: str, staff_id: int, reason: str, coachi
             return {"error": str(e)}
 
 
-async def get_coaching_summary_id(coaching_scheduled_status_id: int = 0, staff_id: int = None, status: str = None):
+async def get_coaching_summary_id(
+    coaching_scheduled_status_id: int = 0, staff_id: int = None, status: str = None
+):
     """Gets coaching_summary_id and relevant details from the rdbms"""
     async with _get_db() as session:
         try:
             if coaching_scheduled_status_id != 0:
-                result = await session.execute(select(CoachingSummary.scheduled_date, CoachingSummary.status).where(CoachingSummary.coaching_schedule_status_id == coaching_scheduled_status_id))
+                result = await session.execute(
+                    select(
+                        CoachingSummary.scheduled_date, CoachingSummary.status
+                    ).where(
+                        CoachingSummary.coaching_schedule_status_id
+                        == coaching_scheduled_status_id
+                    )
+                )
                 data = result.fetchone()
-                return {"coaching_summary_id": coaching_scheduled_status_id, "data": {"date": data[0].isoformat(), "record_status": data[1]}}
+                return {
+                    "coaching_summary_id": coaching_scheduled_status_id,
+                    "data": {"date": data[0].isoformat(), "record_status": data[1]},
+                }
             else:
                 new_data = CoachingScheduledStatus(
                     staff_id=staff_id,
@@ -303,12 +323,18 @@ async def get_coaching_summary_id(coaching_scheduled_status_id: int = 0, staff_i
                     status=status,
                     updated_on=datetime.now(),
                     updated_by=str(staff_id) if staff_id is not None else None,
-                    created_by=str(staff_id) if staff_id is not None else None
+                    created_by=str(staff_id) if staff_id is not None else None,
                 )
                 session.add(new_data)
                 await session.flush()
                 await session.commit()
-                return {"coaching_summary_id": new_data.coaching_schedule_status_id, "data": {"date": new_data.scheduled_date, "record_status": new_data.status}}
+                return {
+                    "coaching_summary_id": new_data.coaching_schedule_status_id,
+                    "data": {
+                        "date": new_data.scheduled_date,
+                        "record_status": new_data.status,
+                    },
+                }
         except Exception as e:
             raise e
 
@@ -316,7 +342,9 @@ async def get_coaching_summary_id(coaching_scheduled_status_id: int = 0, staff_i
 async def get_staff_details(user_id: int):
     async with _get_db() as session:
         try:
-            data = await session.execute(select(Staffs).where(Staffs.user_id == user_id))
+            data = await session.execute(
+                select(Staffs).where(Staffs.user_id == user_id)
+            )
             row = data.scalar_one_or_none()
             if row:
                 return {
@@ -329,7 +357,7 @@ async def get_staff_details(user_id: int):
                     "created_on": row.created_on,
                     "updated_on": row.updated_on,
                     "created_by": row.created_by,
-                    "updated_by": row.updated_by
+                    "updated_by": row.updated_by,
                 }
             else:
                 return None
@@ -339,28 +367,62 @@ async def get_staff_details(user_id: int):
 
 async def get_mcq_details(user_id: int):
     async with _get_db() as session:
-        data = await session.execute(select(Staffs.staff_id).where(Staffs.user_id == user_id))
+        data = await session.execute(
+            select(Staffs.staff_id).where(Staffs.user_id == user_id)
+        )
         staff_id = data.scalar_one_or_none()
         if not staff_id:
             # raise ValueError(f"No staff_id found for user_id: {user_id}")
             return {"error": f"No staff_id found for user_id: {user_id}"}
-        sop_compliance_data = await session.execute(select(SopComplianceTracking).where(SopComplianceTracking.staff_id == staff_id))
+        sop_compliance_data = await session.execute(
+            select(SopComplianceTracking).where(
+                SopComplianceTracking.staff_id == staff_id
+            )
+        )
         sop_compilance_records = sop_compliance_data.scalars().all()
-        sop_compliance_list = [{"message": i.message, "reason": i.reason, "is_completed": i.is_completed, "is_breached": i.is_breached} for i in sop_compilance_records]
-        training_recommendation_data = await session.execute(select(StaffTrainingRecommendations).where(StaffTrainingRecommendations.staff_id == staff_id, StaffTrainingRecommendations.status == "Active"))
+        sop_compliance_list = [
+            {
+                "message": i.message,
+                "reason": i.reason,
+                "is_completed": i.is_completed,
+                "is_breached": i.is_breached,
+            }
+            for i in sop_compilance_records
+        ]
+        training_recommendation_data = await session.execute(
+            select(StaffTrainingRecommendations).where(
+                StaffTrainingRecommendations.staff_id == staff_id,
+                StaffTrainingRecommendations.status == "Active",
+            )
+        )
         training_recommendation_records = training_recommendation_data.scalars().all()
-        training_recommendation_list = [{"training_id": i.training_id, "approval_status": i.approval_status, "reason": i.reason} for i in training_recommendation_records]
+        training_recommendation_list = [
+            {
+                "training_id": i.training_id,
+                "approval_status": i.approval_status,
+                "reason": i.reason,
+            }
+            for i in training_recommendation_records
+        ]
         courses_list = []
         for i in training_recommendation_list:
-            courses_data = await session.execute(select(Courses).where(Courses.training_courses_id == i["training_id"]))
+            courses_data = await session.execute(
+                select(Courses).where(Courses.training_courses_id == i["training_id"])
+            )
             courses_records = courses_data.scalar_one_or_none()
-            dictionary = {"training_name": courses_records.training_name, "training_description": courses_records.training_description, "primary_skill": courses_records.primary_skill, "secondary_skill": courses_records.secondary_skill, "goal": courses_records.course_goal}
+            dictionary = {
+                "training_name": courses_records.training_name,
+                "training_description": courses_records.training_description,
+                "primary_skill": courses_records.primary_skill,
+                "secondary_skill": courses_records.secondary_skill,
+                "goal": courses_records.course_goal,
+            }
             courses_list.append(dictionary)
         return {
             "sop_compliance_list": sop_compliance_list,
             "training_recommendation_list": training_recommendation_list,
             "master_course_data": courses_list,
-            "staff_id": staff_id
+            "staff_id": staff_id,
         }
 
 
@@ -370,7 +432,16 @@ async def save_exam_results(user_id: int, score: int):
         fail = "FAILED"
     async with _get_db() as session:
         try:
-            new_score = UserAssessments(user_id=user_id, score=score, attended_date=date.today(), assessment_status=fail, created_by=str(user_id), created_on=datetime.now(), updated_by=str(user_id), updated_on=datetime.now())
+            new_score = UserAssessments(
+                user_id=user_id,
+                score=score,
+                attended_date=date.today(),
+                assessment_status=fail,
+                created_by=str(user_id),
+                created_on=datetime.now(),
+                updated_by=str(user_id),
+                updated_on=datetime.now(),
+            )
             session.add(new_score)
         except Exception as e:
             raise HTTPException(detail=e, status_code=401)
@@ -378,7 +449,11 @@ async def save_exam_results(user_id: int, score: int):
 
 async def get_score_details(user_id: int):
     async with _get_db() as session:
-        data = await session.execute(select(UserAssessments.score, UserAssessments.assessment_status).where(UserAssessments.user_id == user_id))
+        data = await session.execute(
+            select(UserAssessments.score, UserAssessments.assessment_status).where(
+                UserAssessments.user_id == user_id
+            )
+        )
         records = data.all()
         scores_list = []
         if records is None:
@@ -391,12 +466,12 @@ async def get_score_details(user_id: int):
 if __name__ == "__main__":
     # res = asyncio.run(_get_chat_history(chat_title="Testing", staff_id=1))
     # res = asyncio.run(get_coaching_summary_id(coaching_summary_id=1))
-    """ start = perf_counter()
+    """start = perf_counter()
     res = asyncio.run(get_staff_details(user_id=226))
     end = perf_counter()
     print(f"Execution time: {end - start:.6f} seconds")
     print(res)
-    print(res["staff_name"].lower()) """
+    print(res["staff_name"].lower())"""
     """ start = perf_counter()
     res = asyncio.run(get_mcq_details(user_id=223))
     end = perf_counter()
